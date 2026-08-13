@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Nuovo Torneo - Death Fist Tournament{% endblock %}
+
+{% block body_class %}admin-mode{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto 15px auto;">
+    <h2 style="font-family: 'Space Grotesk', sans-serif;">Crea Nuovo Torneo</h2>
+    <p style="color: var(--text-muted); font-size: 0.9em; margin-top: -10px; margin-bottom: 20px;">
+        Compila i dettagli seguenti per inizializzare il torneo e creare automaticamente la relativa bracket sul tuo account Challonge.
+    </p>
+</div>
+
+<div class="card card-primary" style="max-width: 600px; margin: 0 auto; background: rgba(15, 18, 32, 0.85); box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+    <!-- Standard forms with functional POST fields and inputs kept precisely intact -->
+    <form method="POST" action="{{ prefix }}/admin/tournament/new">
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="name">Nome Torneo</label>
+            <input type="text" id="name" name="name" required placeholder="Es. Death Fist Cup #1" style="width: 100%;">
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="url_slug">Slug URL (Challonge)</label>
+            <input type="text" id="url_slug" name="url_slug" required
+                   placeholder="Es. deathfist_cup_1" pattern="[a-zA-Z0-9_]+"
+                   title="Solo lettere, numeri e underscore" style="width: 100%;">
+            <small style="display: block; margin-top: 6px; font-size: 0.8em; line-height: 1.4; color: var(--text-muted);">
+                Identificativo unico per l'indirizzo internet della bracket. Può contenere solo lettere, numeri e trattini bassi (underscore).
+            </small>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 22px;">
+            <label for="tournament_type">Tipo Eliminazione</label>
+            <select id="tournament_type" name="tournament_type" style="width: 100%;">
+                <option value="single elimination">Singola Eliminazione</option>
+                <option value="double elimination">Doppia Eliminazione</option>
+            </select>
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 35px;">
+            <label for="rules_ft">Formato Incontri (First To)</label>
+            <select id="rules_ft" name="rules_ft" style="width: 100%;">
+                <option value="2">FT2 (Primo a 2 vittorie - Bo3)</option>
+                <option value="3">FT3 (Primo a 3 vittorie - Bo5)</option>
+                <option value="5">FT5 (Primo a 5 vittorie - Bo9)</option>
+            </select>
+        </div>
+        
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 25px;">
+            <a href="{{ prefix }}/admin/dashboard" class="btn btn-secondary" style="margin: 0; padding: 11px 22px; border-radius: 8px;">
+                Annulla
+            </a>
+            <button type="submit" style="padding: 11px 24px; border-radius: 8px; font-family: 'Space Grotesk', sans-serif;">
+                🏆 Crea Torneo su Challonge
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

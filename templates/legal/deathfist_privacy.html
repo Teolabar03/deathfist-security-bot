@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Privacy Policy — Death Fist Tournament System{% endblock %}
+
+{% block nav %}
+<nav>
+    <strong>DEATH FIST TOURNAMENT SYSTEM</strong>
+    <div class="nav-right">
+        <span style="font-size: 0.85em;">Documento legale</span>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="card card-primary">
+    <h2>🔒 Privacy Policy — Death Fist</h2>
+    <p style="color: var(--text-muted); margin-bottom: 10px;">Ultimo aggiornamento: 14 luglio 2026</p>
+
+    <h3>1. Titolare</h3>
+    <p>Death Fist (bot Discord e web app di gestione tornei "Death Fist Tournament System") è sviluppato e
+    gestito interamente da <strong>teolabar03</strong>. Al momento il servizio opera su un singolo server
+    Discord. Per contattare il titolare, vedi la sezione 7.</p>
+
+    <h3>2. Quali dati vengono trattati</h3>
+    <ul style="margin-left: 20px; margin-bottom: 15px;">
+        <li style="margin-bottom: 10px;"><strong>ID Discord e username</strong> dei membri del server, usati per
+        il roster interno del bot (sincronizzati automaticamente quando un membro entra, esce o aggiorna il
+        proprio profilo).</li>
+        <li style="margin-bottom: 10px;"><strong>Dati di iscrizione ai tornei</strong>: ID Discord, nome Discord,
+        ID partecipante Challonge, ID in-game Tekken (opzionale) e personaggio principale selezionato al momento
+        dell'iscrizione.</li>
+        <li style="margin-bottom: 10px;"><strong>Ruoli e preferenze roster</strong>: alias, indicatore "pro" e
+        personaggi assegnati. Questi dati sono visibili pubblicamente nel server Discord (es. nel messaggio del
+        roster) e non sono considerati dati sensibili.</li>
+        <li style="margin-bottom: 10px;"><strong>Contenuto dei messaggi</strong>: analizzato automaticamente e
+        in tempo reale al solo scopo di rilevare spam (invio di 3 messaggi identici in 10 secondi). Questo
+        contenuto viene mantenuto solo in memoria temporanea, non viene mai salvato su database e viene
+        scartato subito dopo l'analisi.</li>
+        <li style="margin-bottom: 10px;"><strong>Dati di accesso amministratori</strong>: chi accede al pannello
+        admin tramite login Discord OAuth2 riceve una sessione via cookie firmato, valida 24 ore. L'accesso è
+        ristretto a un elenco predefinito di ID Discord amministratori.</li>
+    </ul>
+
+    <h3>3. Condivisione dei dati con terze parti</h3>
+    <p>I dati di iscrizione ai tornei vengono inviati a <strong>Challonge</strong>, il servizio terzo usato per
+    gestire bracket e punteggi. Il trattamento di questi dati su Challonge è soggetto alla privacy policy di
+    Challonge e non è sotto il diretto controllo del titolare. I dati di autenticazione admin vengono scambiati
+    con <strong>Discord</strong> tramite OAuth2, secondo la privacy policy di Discord.</p>
+
+    <h3>4. Per quanto tempo vengono conservati i dati</h3>
+    <p>I dati legati alla tua utenza Discord (roster, ruoli, alias) vengono conservati finché rimani membro del
+    server Discord a cui il bot è associato; vengono rimossi automaticamente quando lasci il server. I dati di
+    partecipazione ai tornei passati possono essere conservati più a lungo per mantenere lo storico dei
+    risultati.</p>
+
+    <h3>5. Moderazione automatica</h3>
+    <p>Il bot include un sistema anti-spam automatico: se rileva messaggi ripetuti sospetti, applica un
+    <strong>timeout automatico di 10 minuti</strong> all'utente. Questa è l'unica azione automatica prevista:
+    l'azione viene sempre segnalata in un canale di controllo dove un membro dello staff del server può
+    intervenire manualmente (annullare il timeout, espellere o bannare l'utente). Non è previsto un canale di
+    reclamo dedicato per contestare il timeout automatico in sé, ma puoi sempre rivolgerti allo staff del
+    server per qualsiasi chiarimento.</p>
+
+    <h3>6. Richiesta di cancellazione dei dati</h3>
+    <p>Per i dati gestiti direttamente da Death Fist (database dei tornei, roster), puoi richiedere la
+    cancellazione contattando il titolare su Discord: la richiesta verrà gestita manualmente. Per i dati già
+    inviati a Challonge, il titolare non può intervenire direttamente: eventuali richieste relative a quei dati
+    vanno indirizzate a Challonge.</p>
+
+    <h3>7. Età minima e contatti</h3>
+    <p>L'uso del bot richiede il rispetto dei Termini di Servizio di Discord, che impongono un'età minima di 13
+    anni. Per domande su questa privacy policy o per richiedere la cancellazione dei tuoi dati, contatta il
+    titolare su Discord: <strong>teolabar03</strong>.</p>
+
+    <h3>8. Modifiche a questa policy</h3>
+    <p>Questa pagina può essere aggiornata in futuro; la data di ultimo aggiornamento è indicata in alto. Non
+    è previsto un canale di notifica dedicato per le modifiche.</p>
+
+    <h3>9. Legge applicabile</h3>
+    <p>Questa privacy policy è regolata dalla legge italiana.</p>
+</div>
+{% endblock %}

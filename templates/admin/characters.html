@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Lista Personaggi Tekken 8 - Death Fist Tournament{% endblock %}
+
+{% block body_class %}admin-mode{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
+    <h2 style="border-bottom: none; padding-bottom: 0; margin-bottom: 0; font-family: 'Space Grotesk', sans-serif;">
+        🥋 Lista Personaggi Tekken 8
+    </h2>
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--primary); background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 4px 14px; border-radius: 8px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">
+        <span>Totale Personaggi:</span> <span style="font-size: 1.1em; color: #fff;">{{ characters | length }}</span>
+    </div>
+</div>
+<p style="color: var(--text-muted); margin-top: 0; margin-bottom: 25px; font-size: 0.95em; max-width: 800px; line-height: 1.5;">
+    Questa lista viene utilizzata sia nell'autocomplete dello slash command Discord <code>/iscriviti</code>, sia nella schermata di assegnazione del roster. La rimozione di un personaggio lo scollegherà automaticamente dal roster di tutti i membri associati.
+</p>
+
+<!-- Form layout optimized for modern browsers -->
+<div class="card card-primary" style="max-width: 550px; margin-bottom: 30px; background: rgba(15, 18, 32, 0.7);">
+    <form method="POST" action="{{ prefix }}/admin/characters/add" style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 200px;">
+            <input type="text" name="name" required placeholder="Es. Jin Kazama, Kazuya, Reina..." style="width: 100%;">
+        </div>
+        <button type="submit" style="padding: 11px 22px; font-size: 0.9em; white-space: nowrap;">
+            <span>➕</span> Aggiungi
+        </button>
+    </form>
+</div>
+
+{% if characters %}
+<div class="table-responsive" style="max-width: 800px;">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 70%">Nome Personaggio</th>
+                <th style="text-align: right; width: 30%">Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in characters %}
+            <tr>
+                <td style="font-weight: 600; color: #fff; font-size: 1.05em; font-family: 'Space Grotesk', sans-serif;">
+                    {{ c }}
+                </td>
+                <td style="text-align: right;">
+                    <form method="POST" action="{{ prefix }}/admin/characters/remove" class="sync-form"
+                          onsubmit="return confirm('Rimuovere {{ c }}? Verrà tolto anche da chi lo aveva assegnato.')">
+                        <input type="hidden" name="name" value="{{ c }}">
+                        <button type="submit" class="btn-danger" style="padding: 6px 14px; font-size: 0.8em; font-family: 'Inter', sans-serif;">
+                            Rimuovi
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: var(--text-muted); background: var(--surface-color); padding: 30px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); max-width: 800px;">
+    Nessun personaggio presente in lista al momento. Inserisci un nome sopra per iniziare.
+</p>
+{% endif %}
+{% endblock %}

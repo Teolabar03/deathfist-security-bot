@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - Bracket{% endblock %}
+
+{% block nav %}
+<nav>
+    <strong>DEATH FIST TOURNAMENT SYSTEM</strong>
+    <div class="nav-links">
+        <a href="{{ prefix }}/">Home</a>
+        <a href="{{ prefix }}/storico">Storico</a>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<!-- STILI CSS DEDICATI PER QUESTA PAGINA -->
+<style>
+    /* Reset & Variabili Locali per garantire consistenza se mancano nel base.html */
+    :root {
+        --df-dark-bg: #090c15;
+        --df-card-bg: #11162d;
+        --df-border: rgba(255, 70, 85, 0.15);
+        --df-glow: rgba(255, 70, 85, 0.25);
+    }
+
+    /* Container della Bracket di Challonge */
+    .bracket-wrapper {
+        background: var(--df-card-bg);
+        border: 2px solid var(--df-border);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 40px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 15px var(--df-glow);
+    }
+
+    .iframe-holder {
+        position: relative;
+        width: 100%;
+        height: 550px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #1a1e36; /* Colore di fallback scuro durante il caricamento */
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .iframe-holder iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    /* Grid layout */
+    .bracket-grid {
+        display: grid;
+        grid-template-columns: 1.8fr 1.2fr;
+        gap: 30px;
+        margin-top: 30px;
+    }
+
+    @media (max-width: 992px) {
+        .bracket-grid {
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+    }
+
+    /* Tabelle e Card interne uniformate */
+    .df-table-container {
+        background: var(--df-card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .df-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .df-table th {
+        background: rgba(255, 255, 255, 0.02) !important;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 14px 16px !important;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted, #8a9fc4);
+        text-align: left;
+    }
+
+    .df-table td {
+        padding: 14px 16px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: middle;
+        background: transparent;
+    }
+
+    .df-table tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Stati dei Match */
+    .match-row-open {
+        border-left: 4px solid var(--info, #3b82f6) !important;
+    }
+
+    .match-row-complete {
+        border-left: 4px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* Badge & Tag */
+    .char-tag {
+        background: rgba(255, 70, 85, 0.1);
+        color: #ff8e99;
+        border: 1px solid rgba(255, 70, 85, 0.2);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .trophy-winner {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--success, #10b981);
+        font-weight: 700;
+    }
+
+    .btn-action {
+        background: var(--primary, #ff4655);
+        color: #fff;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 0.85em;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-action:hover {
+        opacity: 0.9;
+        box-shadow: 0 0 12px var(--df-glow);
+        transform: translateY(-1px);
+    }
+</style>
+
+<!-- CARD STATO E DETTAGLI TORNEO -->
+<div class="card card-primary" style="border-left: 4px solid var(--primary); background: linear-gradient(135deg, #0e1222 0%, #161b35 100%); border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); margin-bottom: 30px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <span style="color: var(--primary); font-weight: 700; text-transform: uppercase; font-size: 0.8em; letter-spacing: 2px; font-family: 'Space Grotesk', sans-serif;">Dettagli Torneo</span>
+            <h2 style="border: none; margin: 4px 0 10px 0; padding: 0; font-family: 'Space Grotesk', sans-serif; font-size: 2.1em; font-weight: 800;">
+                🏆 {{ tournament.name }}
+            </h2>
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; color: var(--text-muted); font-size: 0.9em;">
+                <span>Stato:</span> 
+                <span class="badge badge-{{ tournament.status | lower | replace('_open','open') | replace('registration','') }}">
+                    {{ tournament.status | replace('REGISTRATION_OPEN', 'Iscrizioni Aperte') | replace('SETUP', 'Configurazione') | replace('ACTIVE', 'In Corso') | replace('FINISHED', 'Terminato') }}
+                </span>
+                <span style="color: rgba(255,255,255,0.15)">|</span>
+                <span>Formato: <code style="color: var(--primary); font-weight: 700; background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px;">FT{{ tournament.rules_ft }}</code></span>
+                <span style="color: rgba(255,255,255,0.15)">|</span>
+                <span>Iscritti: <strong style="color: #fff;">{{ participants | length }}</strong></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SEZIONE BRACKET EMBED CHALLONGE (Migliorata e integrata nel design del sito) -->
+{% if tournament.status in ('ACTIVE', 'FINISHED') %}
+<div class="bracket-wrapper">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h3 style="font-family: 'Space Grotesk', sans-serif; margin: 0; font-size: 1.5em; font-weight: 700;">
+                <span style="color: var(--primary); margin-right: 8px;"></span>Bracket Ufficiale
+            </h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85em; color: var(--text-muted);">Usa lo zoom integrato o trascina con il mouse per navigare i match</p>
+        </div>
+        <a href="https://challonge.com/it/{{ tournament.id }}" target="_blank" rel="noopener noreferrer" class="btn-action">
+            Apri su Challonge ↗
+        </a>
+    </div>
+    
+    <div class="iframe-holder">
+        <!-- 
+          * NOTA SULLA PERSONALIZZAZIONE DELL'URL DI CHALLONGE *
+          Utilizziamo parametri strategici:
+          - theme=1 per richiamare il tema dark predefinito di Challonge.
+          - multiplier=0.9 per scalare meglio la bracket sui monitor medi.
+          - match_width_multiplier=1.1 per non tagliare i nomi lunghi dei giocatori.
+        -->
+        <iframe src="https://challonge.com/it/{{ tournament.id }}/module?theme=1&multiplier=0.9&match_width_multiplier=1.1&show_final_results=1" frameborder="0" scrolling="auto" allowtransparency="true"></iframe>
+    </div>
+</div>
+{% endif %}
+
+<!-- Grid System -->
+<div class="bracket-grid">
+    
+    <!-- Column 1: Matches -->
+    <div>
+        <h3 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 15px;">Tabellone Incontri</h3>
+        {% if matches %}
+        <div class="df-table-container">
+            <table class="df-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%">Round</th>
+                        <th style="width: 25%">Giocatore 1</th>
+                        <th style="width: 25%">Giocatore 2</th>
+                        <th style="text-align: center; width: 12%">Score</th>
+                        <th style="width: 23%">Vincitore</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in matches %}
+                    <tr class="{% if m.state == 'open' %}match-row-open{% else %}match-row-complete{% endif %}">
+                        <td style="font-weight: 700; font-family: 'Space Grotesk', sans-serif; color: var(--text-color);">
+                            {{ m.round | replace('Round ', 'R') }}
+                        </td>
+                        <td class="player-name" {% if m.winner_name and m.player1_name == m.winner_name %}style="color: var(--success); font-weight: 700;"{% endif %}>
+                            {% if m.winner_name and m.player1_name == m.winner_name %}
+                                <span class="trophy-winner">👑 {{ m.player1_name }}</span>
+                            {% else %}
+                                {{ m.player1_name or '(bye)' }}
+                            {% endif %}
+                        </td>
+                        <td class="player-name" {% if m.winner_name and m.player2_name == m.winner_name %}style="color: var(--success); font-weight: 700;"{% endif %}>
+                            {% if m.winner_name and m.player2_name == m.winner_name %}
+                                <span class="trophy-winner">👑 {{ m.player2_name }}</span>
+                            {% else %}
+                                {{ m.player2_name or '(bye)' }}
+                            {% endif %}
+                        </td>
+                        <td style="text-align: center; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 1px; color: var(--primary);">
+                            {{ m.scores_csv or '-' }}
+                        </td>
+                        <td>
+                            {% if m.winner_name %}
+                                <span style="font-weight: 600; color: #fff;">🥇 {{ m.winner_name }}</span>
+                            {% else %}
+                                <span class="badge" style="background: rgba(245, 158, 11, 0.1); color: var(--warning); border-color: rgba(245, 158, 11, 0.2)">
+                                    In Attesa
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% elif tournament.status == 'ACTIVE' %}
+            <div class="df-table-container" style="text-align: center; padding: 40px 20px;">
+                <p style="color: var(--text-muted); margin: 0;">Nessun match generato al momento per questa fase.</p>
+            </div>
+        {% elif tournament.status == 'REGISTRATION_OPEN' %}
+            <div style="color: var(--warning); background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); padding: 24px; border-radius: 12px; margin: 20px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.15)">
+                <h4 style="color: #ffb020; margin-bottom: 8px; font-family: 'Space Grotesk', sans-serif;">Iscrizioni Aperte</h4>
+                <p style="font-size: 0.95em; line-height: 1.5; color: #fef08a; margin: 0;">
+                    Le iscrizioni sono attualmente in corso. Il tabellone e gli accoppiamenti degli incontri compariranno automaticamente non appena l'amministratore avvierà ufficialmente il torneo.
+                </p>
+            </div>
+        {% elif tournament.status == 'SETUP' %}
+            <div class="df-table-container" style="text-align: center; padding: 40px 20px;">
+                <p style="color: var(--text-muted); margin: 0;">Il torneo è in fase di configurazione da parte dello staff.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Column 2: Participants -->
+    <div>
+        <h3 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 15px;">Lista Partecipanti ({{ participants | length }})</h3>
+        {% if participants %}
+        <div class="df-table-container">
+            <table class="df-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%">Seed</th>
+                        <th style="width: 45%">Giocatore</th>
+                        <th style="width: 35%">Personaggio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in participants %}
+                    <tr>
+                        <td style="color: var(--text-muted); font-weight: 700; font-family: 'Space Grotesk', sans-serif;">
+                            #{{ loop.index }}
+                        </td>
+                        <td>
+                            <div style="font-weight: 600; color: #fff;">{{ p.discord_name }}</div>
+                            {% if p.tekken_id %}
+                                <div style="font-size: 0.8em; color: var(--text-muted); margin-top: 2px;">
+                                    ID: <code style="background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 3px;">{{ p.tekken_id }}</code>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.main_character %}
+                                <span class="char-tag">{{ p.main_character }}</span>
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.85em;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="df-table-container" style="text-align: center; padding: 40px 20px;">
+            <p style="color: var(--text-muted); margin: 0;">Nessun partecipante iscritto a questo torneo.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

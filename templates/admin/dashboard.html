@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Death Fist Tournament{% endblock %}
+
+{% block body_class %}admin-mode{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
+    <h2 style="font-family: 'Space Grotesk', sans-serif; margin-bottom: 0; border-bottom: none; padding-bottom: 0;">
+        ⚙️ Tornei Gestiti
+    </h2>
+    <a href="{{ prefix }}/admin/tournament/new" class="btn" style="padding: 11px 24px;">
+        ➕ Crea Nuovo Torneo
+    </a>
+</div>
+
+{% if tournaments %}
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 20%">ID / Slug</th>
+                <th style="width: 35%">Nome Torneo</th>
+                <th style="width: 20%">Stato</th>
+                <th style="width: 10%">Formato</th>
+                <th style="text-align: right; width: 15%">Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in tournaments %}
+            <tr>
+                <td><code>{{ t.id }}</code></td>
+                <td style="font-weight: 600; color: #fff; font-family: 'Space Grotesk', sans-serif; font-size: 1.05em;">{{ t.name }}</td>
+                <td>
+                    <span class="badge badge-{{ t.status | lower | replace('_open','open') | replace('registration','') }}">
+                        {{ t.status | replace('REGISTRATION_OPEN', 'Iscrizioni Aperte') | replace('SETUP', 'Configurazione') | replace('ACTIVE', 'In Corso') | replace('FINISHED', 'Terminato') }}
+                    </span>
+                </td>
+                <td>
+                    <span style="color: var(--text-muted); font-size: 0.85em; font-weight: 500; margin-right: 4px;">FT</span><strong style="color: var(--primary); font-family: 'Space Grotesk', sans-serif;">{{ t.rules_ft }}</strong>
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 8px; justify-content: flex-end; align-items: center; width: 100%;">
+                        <a href="{{ prefix }}/admin/tournament/{{ t.id }}" class="btn" style="padding: 6px 14px; font-size: 0.85em; border-radius: 6px;">
+                            Gestisci
+                        </a>
+                        <a href="{{ prefix }}/torneo/{{ t.id }}" target="_blank" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.85em; border-radius: 6px;">
+                            Bracket
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card card-primary" style="text-align: center; padding: 50px 30px; background: rgba(15, 18, 32, 0.7);">
+    <div style="font-size: 2.5rem; margin-bottom: 15px;">🎮</div>
+    <p style="color: var(--text-muted); margin-bottom: 25px; font-size: 1.05em;">Nessun torneo configurato nel database.</p>
+    <a href="{{ prefix }}/admin/tournament/new" class="btn" style="padding: 12px 28px;">
+        Crea il tuo primo torneo
+    </a>
+</div>
+{% endif %}
+{% endblock %}

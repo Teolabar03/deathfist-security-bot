@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}{{ tournament.name }} - Admin{% endblock %}
+
+{% block body_class %}admin-mode{% endblock %}
+
+{% block content %}
+<style>
+    .admin-detail-header {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        flex-wrap: wrap; 
+        gap: 20px;
+        background: linear-gradient(135deg, #0f1220 0%, #1a1e38 100%);
+    }
+    .quick-edit-row {
+        background: rgba(15, 18, 32, 0.45) !important; 
+    }
+    .quick-edit-container {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+        border-left: 3px solid var(--primary);
+        padding-left: 12px;
+    }
+    .char-badge {
+        background: rgba(168, 85, 247, 0.12);
+        color: #dfb2ff;
+        border: 1px solid rgba(168, 85, 247, 0.25);
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        font-weight: 600;
+        display: inline-block;
+    }
+</style>
+
+<div class="card card-primary admin-detail-header">
+    <div>
+        <span style="color: var(--primary); font-weight: 700; text-transform: uppercase; font-size: 0.8em; letter-spacing: 2px; font-family: 'Space Grotesk', sans-serif;">Pannello di Controllo</span>
+        <h2 style="border: none; margin: 4px 0 10px 0; padding: 0; font-family: 'Space Grotesk', sans-serif; font-size: 2.1em;">
+            {{ tournament.name }}
+        </h2>
+        <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; color: var(--text-muted); font-size: 0.9em;">
+            <span>Slug: <code style="color: #60a5fa;">{{ tournament.id }}</code></span>
+            <span style="color: rgba(255,255,255,0.15)">|</span>
+            <span>Formato: <strong>FT{{ tournament.rules_ft }}</strong></span>
+            <span style="color: rgba(255,255,255,0.15)">|</span>
+            <a href="{{ prefix }}/torneo/{{ tournament.id }}" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <span>🔗</span> Vedi Bracket Pubblico
+            </a>
+        </div>
+    </div>
+    <div>
+        <span class="badge badge-{{ tournament.status | lower | replace('_open','open') | replace('registration','') }}" style="font-size: 0.9em; padding: 8px 18px; border-radius: 8px;">
+            Stato: {{ tournament.status | replace('REGISTRATION_OPEN', 'Iscrizioni Aperte') | replace('SETUP', 'Configurazione') | replace('ACTIVE', 'In Corso') | replace('FINISHED', 'Terminato') }}
+        </span>
+    </div>
+</div>
+
+<h3 style="font-family: 'Space Grotesk', sans-serif;">Azioni di Gestione</h3>
+<div class="card actions-group" style="background: rgba(15, 18, 32, 0.6); padding: 20px;">
+    {% if tournament.status == 'SETUP' %}
+        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/status">
+            <input type="hidden" name="new_status" value="REGISTRATION_OPEN">
+            <button type="submit" class="btn-success" style="padding: 12px 24px; font-size: 0.95em;">
+                🔓 Apri Registrazioni Torneo
+            </button>
+        </form>
+    {% elif tournament.status == 'REGISTRATION_OPEN' %}
+        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/status" style="margin-right: 10px;">
+            <input type="hidden" name="new_status" value="SETUP">
+            <button type="submit" class="btn-secondary" style="padding: 12px 24px; font-size: 0.95em; margin: 0;">
+                🔒 Chiudi Registrazioni (Torna in Setup)
+            </button>
+        </form>
+        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/start" onsubmit="return confirm('Mescola e avvia il torneo? Questa azione non è reversibile.')" style="margin-right: 10px;">
+            <input type="hidden" name="shuffle" value="1">
+            <button type="submit" class="btn-success" style="padding: 12px 24px; font-size: 0.95em;">
+                ⚡ Mescola Seed &amp; Avvia Torneo su Challonge
+            </button>
+        </form>
+        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/start" onsubmit="return confirm('Avviare il torneo con i seed attuali (senza mescolare)? Questa azione non è reversibile.')">
+            <input type="hidden" name="shuffle" value="0">
+            <button type="submit" class="btn-success" style="padding: 12px 24px; font-size: 0.95em;">
+                🎯 Avvia con Seed Manuali (senza mescolare)
+            </button>
+        </form>
+    {% elif tournament.status == 'ACTIVE' %}
+        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/status" onsubmit="return confirm('Segna il torneo come terminato?')">
+            <input type="hidden" name="new_status" value="FINISHED">
+            <button type="submit" class="btn-danger" style="padding: 12px 24px; font-size: 0.95em;">
+                🛑 Termina Torneo (Congela Risultati)
+            </button>
+        </form>
+    {% else %}
+        <div style="display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-style: italic; font-size: 0.95em;">
+            <span>🏁</span> Torneo concluso. Nessuna azione di stato disponibile.
+        </div>
+    {% endif %}
+</div>
+
+<h3 style="font-family: 'Space Grotesk', sans-serif;">Partecipanti Iscritti ({{ participants | length + (challonge_only | default([]) | length) }})</h3>
+{% if participants %}
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%">Membro Discord</th>
+                <th style="width: 20%">Tekken ID</th>
+                <th style="width: 20%">Main Character</th>
+                <th style="width: 20%">Challonge Participant ID</th>
+                <th style="text-align: right; width: 15%">Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in participants %}
+            <tr>
+                <td>
+                    <div style="font-weight: 700; color: #fff; font-size: 1.05em; font-family: 'Space Grotesk', sans-serif;">
+                        {{ p.discord_name }}
+                    </div>
+                    <div style="margin-top: 2px;"><small>ID: <code>{{ p.discord_id }}</code></small></div>
+                </td>
+                <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.95em; font-weight: 500;">
+                    {{ p.tekken_id or '-' }}
+                </td>
+                <td>
+                    {% if p.main_character %}
+                        <span class="char-badge">{{ p.main_character }}</span>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.9em;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if p.challonge_participant_id %}
+                        <code>{{ p.challonge_participant_id }}</code>
+                    {% else %}
+                        <span style="color: var(--text-muted); font-style: italic; font-size: 0.85em;">In attesa di sinc</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right;">
+                    {% if tournament.status in ['SETUP', 'REGISTRATION_OPEN'] %}
+                        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/participant/{{ p.discord_id }}/remove"
+                              onsubmit="return confirm('Rimuovere {{ p.discord_name }} dal torneo?')">
+                            <button type="submit" class="btn-danger" style="padding: 6px 12px; font-size: 0.8em; font-family: 'Inter', sans-serif;">
+                                Rimuovi
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="badge badge-finished" style="font-size: 0.75em; padding: 4px 10px;">Iscrizioni Chiuse</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if tournament.status in ['SETUP', 'REGISTRATION_OPEN'] %}
+            <tr class="quick-edit-row">
+                <td colspan="5" style="border-bottom: 2px solid var(--border-color); padding: 10px 18px;">
+                    <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/participant/{{ p.discord_id }}/edit" 
+                          style="display: flex; align-items: center; width: 100%;">
+                        <div class="quick-edit-container" style="width: 100%;">
+                            <span style="font-weight: 600; color: var(--text-muted); font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;">
+                                ✏️ Modifica Rapida:
+                            </span>
+                            <div style="width: 150px;">
+                                <input type="text" name="tekken_id" value="{{ p.tekken_id or '' }}" placeholder="Tekken ID" style="padding: 6px 10px; font-size: 0.85em;">
+                            </div>
+                            <div style="width: 160px;">
+                                <input type="text" name="main_character" value="{{ p.main_character }}" placeholder="Personaggio" style="padding: 6px 10px; font-size: 0.85em;">
+                            </div>
+                            <button type="submit" class="btn-secondary" style="padding: 7px 14px; font-size: 0.8em; height: 32px; font-family: 'Inter', sans-serif;">
+                                Salva
+                            </button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p style="color: var(--text-muted); background: var(--surface-color); padding: 30px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color);">
+    Nessun partecipante iscritto a questo torneo. Gli utenti registrati compariranno in questa lista.
+</p>
+{% endif %}
+
+{% if tournament.status in ['SETUP', 'REGISTRATION_OPEN'] %}
+<h3 style="font-family: 'Space Grotesk', sans-serif;">Iscrizione Manuale</h3>
+<div class="card" style="background: rgba(15, 18, 32, 0.6); padding: 20px;">
+    <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/participant/add"
+          style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+        <div>
+            <label style="display: block; font-size: 0.8em; color: var(--text-muted); margin-bottom: 4px;">Nome *</label>
+            <input type="text" name="name" required placeholder="Nome giocatore" style="padding: 8px 12px;">
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.8em; color: var(--text-muted); margin-bottom: 4px;">Tekken ID</label>
+            <input type="text" name="tekken_id" placeholder="(opzionale)" style="padding: 8px 12px;">
+        </div>
+        <div>
+            <label style="display: block; font-size: 0.8em; color: var(--text-muted); margin-bottom: 4px;">Personaggio</label>
+            <input type="text" name="main_character" placeholder="(opzionale)" style="padding: 8px 12px;">
+        </div>
+        <button type="submit" class="btn-success" style="padding: 9px 20px; font-size: 0.9em;">➕ Iscrivi</button>
+    </form>
+    <p style="color: var(--text-muted); font-size: 0.82em; margin: 10px 0 0 0;">
+        Iscrive il giocatore su Challonge e nel database locale, senza bisogno del bot Discord.
+    </p>
+</div>
+
+{% if seeding %}
+<h3 style="font-family: 'Space Grotesk', sans-serif;">Seeding del Bracket</h3>
+<div class="card" style="background: rgba(15, 18, 32, 0.6); padding: 20px;">
+    <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/seeds">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 20%">Seed</th>
+                        <th>Giocatore</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in seeding %}
+                    <tr>
+                        <td>
+                            <input type="number" name="seed__{{ s.id }}" value="{{ s.seed }}"
+                                   min="1" max="{{ seeding | length }}" required
+                                   style="width: 70px; padding: 6px 10px; text-align: center;">
+                        </td>
+                        <td style="font-weight: 600; color: #fff;">{{ s.name }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top: 12px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+            <button type="submit" class="btn-secondary" style="padding: 9px 20px; font-size: 0.9em;">💾 Salva Seed</button>
+            <span style="color: var(--text-muted); font-size: 0.82em;">
+                Il seed 1 incontra l'ultimo seed al primo turno. Dopo il salvataggio usa "Avvia con Seed Manuali" per non mescolarli.
+            </span>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endif %}
+
+{% if challonge_only %}
+<h3 style="font-family: 'Space Grotesk', sans-serif;">Aggiunti direttamente su Challonge ({{ challonge_only | length }})</h3>
+<p style="color: var(--text-muted); font-size: 0.9em; margin-top: -8px;">
+    Questi partecipanti esistono solo su Challonge: non hanno un profilo Discord collegato né personaggio/Tekken ID.
+</p>
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 45%">Nome su Challonge</th>
+                <th style="width: 20%">Seed</th>
+                <th style="width: 20%">Challonge Participant ID</th>
+                <th style="text-align: right; width: 15%">Azioni</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in challonge_only %}
+            <tr>
+                <td style="font-weight: 700; color: #fff; font-family: 'Space Grotesk', sans-serif;">{{ p.name }}</td>
+                <td style="color: var(--text-muted); font-weight: 700;">{{ p.seed or '-' }}</td>
+                <td><code>{{ p.id }}</code></td>
+                <td style="text-align: right;">
+                    {% if tournament.status in ['SETUP', 'REGISTRATION_OPEN'] %}
+                        <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/challonge-participant/{{ p.id }}/remove"
+                              onsubmit="return confirm('Rimuovere {{ p.name }} dal torneo su Challonge?')">
+                            <button type="submit" class="btn-danger" style="padding: 6px 12px; font-size: 0.8em; font-family: 'Inter', sans-serif;">
+                                Rimuovi
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="badge badge-finished" style="font-size: 0.75em; padding: 4px 10px;">Iscrizioni Chiuse</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<h3 style="font-family: 'Space Grotesk', sans-serif; color: #ef4444;">Zona Pericolosa</h3>
+<div class="card" style="border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.04); padding: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+    {% if tournament.status in ['ACTIVE', 'FINISHED'] %}
+    <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/reset"
+          onsubmit="return confirm('Resettare il torneo? Tutti i risultati dei match verranno azzerati su Challonge. I partecipanti restano iscritti e le iscrizioni verranno riaperte.')">
+        <button type="submit" class="btn-secondary" style="padding: 10px 20px; font-size: 0.9em;">
+            🔄 Resetta Torneo (azzera bracket, conserva iscritti)
+        </button>
+    </form>
+    {% endif %}
+    <form method="POST" action="{{ prefix }}/admin/tournament/{{ tournament.id }}/delete"
+          onsubmit="return confirm('ELIMINARE DEFINITIVAMENTE il torneo {{ tournament.name }}? Verrà cancellato sia da Challonge sia dal database locale, con tutti i suoi iscritti. Questa azione NON è reversibile.')">
+        <button type="submit" class="btn-danger" style="padding: 10px 20px; font-size: 0.9em;">
+            🗑️ Elimina Torneo (Challonge + locale)
+        </button>
+    </form>
+</div>
+{% endblock %}

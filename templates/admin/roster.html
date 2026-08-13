@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Roster Personaggi - Death Fist Tournament{% endblock %}
+
+{% block body_class %}admin-mode{% endblock %}
+
+{% block content %}
+<style>
+    /* Styling select-multi to look clean and integrated */
+    select[multiple] {
+        background: #111422;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 6px;
+        font-size: 0.85em;
+        color: #fff;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary) #111422;
+    }
+    select[multiple]::-webkit-scrollbar {
+        width: 6px;
+    }
+    select[multiple]::-webkit-scrollbar-thumb {
+        background-color: var(--primary);
+        border-radius: 3px;
+    }
+    select[multiple] option {
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-bottom: 2px;
+    }
+    select[multiple] option:checked {
+        background: rgba(168, 85, 247, 0.2) linear-gradient(0deg, rgba(168, 85, 247, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+        color: #dfb2ff;
+        font-weight: 600;
+    }
+    .char-badge-roster {
+        background: rgba(255, 255, 255, 0.05); 
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 4px 10px; 
+        border-radius: 6px; 
+        margin-right: 6px; 
+        display: inline-block; 
+        margin-bottom: 6px;
+        font-size: 0.85em;
+        color: #e2e8f0;
+        font-weight: 500;
+    }
+    .alias-info {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.82em;
+        background: rgba(168, 85, 247, 0.1);
+        color: #dfb2ff;
+        border: 1px solid rgba(168, 85, 247, 0.15);
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+    }
+    .roster-save-bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        background: rgba(17, 20, 34, 0.92);
+        backdrop-filter: blur(4px);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-bottom: 14px;
+    }
+    .roster-save-bar button {
+        padding: 10px 22px;
+        font-size: 0.9em;
+        font-family: 'Inter', sans-serif;
+        font-weight: 600;
+    }
+</style>
+
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid var(--border-color); padding-bottom: 10px;">
+    <h2 style="border-bottom: none; padding-bottom: 0; margin-bottom: 0; font-family: 'Space Grotesk', sans-serif;">
+        👤 Roster Personaggi
+    </h2>
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--primary); background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2); padding: 4px 14px; border-radius: 8px; font-size: 0.9em; display: inline-flex; align-items: center; gap: 6px;">
+        <span>Totale Membri:</span> <span style="font-size: 1.1em; color: #fff;">{{ members | length }}</span>
+    </div>
+</div>
+<p style="color: var(--text-muted); margin-top: 0; margin-bottom: 25px; font-size: 0.95em; max-width: 850px; line-height: 1.5;">
+    Associa uno o più personaggi Tekken 8 a ciascun membro del server e assegna facoltativamente un alias che verrà mostrato al posto del nome Discord nei canali pubblici. Modifica quanti membri vuoi e poi salva tutto in un'unica volta. Le modifiche vengono pubblicate automaticamente nel canale Discord del roster.
+</p>
+
+{% if members %}
+<form method="POST" action="{{ prefix }}/admin/roster/bulk-edit" id="roster-bulk-form" class="sync-form">
+<div class="roster-save-bar">
+    <button type="submit">💾 Salva Tutte le Modifiche</button>
+</div>
+<div class="table-responsive">
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 25%">Membro Discord</th>
+                <th style="width: 25%">Personaggi Assegnati</th>
+                <th style="text-align: right; width: 35%">Modifica Roster</th>
+                <th style="text-align: right; width: 15%">Visibilità</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in members %}
+            <tr data-sort-key="{% if m.alias %}{{ m.alias | lower }}{% else %}{{ m.discord_name | lower }}{% endif %}" style="{% if m.excluded %}opacity: 0.55; background: rgba(239, 68, 68, 0.015);{% endif %}">
+                <td>
+                    <div style="font-weight: 700; color: #fff; font-size: 1em; font-family: 'Space Grotesk', sans-serif;">
+                        {{ m.discord_name }}
+                    </div>
+                    <div style="margin-top: 2px;"><small>ID: <code>{{ m.discord_id }}</code></small></div>
+                    {% if m.alias %}
+                        <div class="alias-info">
+                            <span>🏷️ Alias: <strong>{{ m.alias }}</strong></span>
+                        </div>
+                    {% endif %}
+                    {% if m.excluded %}
+                        <div style="margin-top: 6px;">
+                            <span class="badge badge-finished" style="background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.2);">Escluso</span>
+                        </div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; max-width: 250px;">
+                        {% if m.characters %}
+                            {% for c in m.characters %}
+                                <span class="char-badge-roster">{{ c }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <em style="color: var(--text-muted); font-size: 0.9em;">{{ default_label }}</em>
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="text-align: right;">
+                    <div style="display: inline-flex; gap: 8px; align-items: stretch; justify-content: flex-end; flex-wrap: wrap;">
+                        <input type="text" name="alias__{{ m.discord_id }}" value="{{ m.alias or '' }}" placeholder="Alias (opzionale)" style="width: 135px; height: 38px; font-size: 0.85em;">
+                        <select name="characters__{{ m.discord_id }}" multiple size="4" style="min-width: 170px; height: 100px;">
+                            {% for c in all_characters %}
+                                <option value="{{ c }}" {% if c in m.characters %}selected{% endif %}>{{ c }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </td>
+                <td style="text-align: right; vertical-align: top; padding-top: 14px;">
+                    {% if m.excluded %}
+                        <button type="submit" formaction="{{ prefix }}/admin/roster/{{ m.discord_id }}/toggle-exclude" class="btn-success" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap; font-family: 'Inter', sans-serif;">
+                            Reinserisci
+                        </button>
+                    {% else %}
+                        <button type="submit" formaction="{{ prefix }}/admin/roster/{{ m.discord_id }}/toggle-exclude" class="btn-danger" style="padding: 8px 14px; font-size: 0.8em; white-space: nowrap; font-family: 'Inter', sans-serif;">
+                            Escludi
+                        </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+</form>
+
+<script>
+    // Sort the roster table rows dynamically by Alias if present, otherwise by Discord username (case-insensitive)
+    (function() {
+        const tbody = document.querySelector('table tbody');
+        if (tbody) {
+            const rows = Array.from(tbody.querySelectorAll('tr[data-sort-key]'));
+            rows.sort((a, b) => {
+                const keyA = a.getAttribute('data-sort-key') || '';
+                const keyB = b.getAttribute('data-sort-key') || '';
+                return keyA.localeCompare(keyB, 'it', { sensitivity: 'base' });
+            });
+            // Re-append the sorted rows back into the table body
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    })();
+</script>
+{% else %}
+<p style="color: var(--text-muted); background: var(--surface-color); padding: 30px; border-radius: 12px; text-align: center; border: 1px solid var(--border-color);">
+    Nessun membro trovato nel server Discord. Assicurati che l'istanza del bot sia attiva e configurata con l'intent "Server Members".
+</p>
+{% endif %}
+{% endblock %}
