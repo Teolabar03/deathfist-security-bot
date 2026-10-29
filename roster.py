@@ -8,7 +8,8 @@ import httpx
 import database
 from constants import DEFAULT_CHARACTER_LABEL
 
-DISCORD_API = "https://discord.com/api"
+# Versione esplicita: senza, Discord risponde col vecchio formato e retry_after è in millisecondi
+DISCORD_API = "https://discord.com/api/v10"
 
 DEFAULT_COLOR = 0xF1C40F  # Giallo Paul Phoenix
 PRO_COLOR = 0x3B82F6  # Blu, per il ruolo Pro
@@ -56,7 +57,14 @@ async def _request(client: httpx.AsyncClient, method: str, url: str, headers: di
                 retry_after = 1.0
             await asyncio.sleep(retry_after + 0.25)
             continue
-        await asyncio.sleep(REQUEST_PACING_SECONDS)
+        if resp.headers.get("X-RateLimit-Remaining") == "0":
+            # Bucket esaurito (es. 10 ruoli ogni 10 s): si aspetta il reset invece di prendersi un 429
+            try:
+                await asyncio.sleep(float(resp.headers.get("X-RateLimit-Reset-After", 1)) + 0.25)
+            except ValueError:
+                await asyncio.sleep(1)
+        else:
+            await asyncio.sleep(REQUEST_PACING_SECONDS)
         return resp
     return resp
 
