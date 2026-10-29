@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands, tasks
 from discord import app_commands
 from collections import deque
+import asyncio
 import datetime
 import os
 from dotenv import load_dotenv
@@ -91,10 +92,31 @@ async def full_roster_sync():
     if all_ids:
         database.prune_members_not_in(all_ids)
 
-    try:
-        await roster.sync_all_member_messages()
-    except Exception as e:
-        print(f"[ROSTER ERROR] {e}", flush=True)
+    await sync_roles_and_roster()
+
+
+_roster_sync_lock = asyncio.Lock()
+_roster_sync_waiting = False
+
+
+async def sync_roles_and_roster():
+    """Allinea personaggi e ruoli Discord, poi aggiorna i messaggi del roster.
+    Le richieste che arrivano mentre una sync è in corso si accorpano in una sola successiva
+    (ogni ruolo assegnato dal bot genera un on_member_update)."""
+    global _roster_sync_waiting
+    if _roster_sync_waiting:
+        return
+    _roster_sync_waiting = True
+    async with _roster_sync_lock:
+        _roster_sync_waiting = False
+        try:
+            await roster.sync_character_roles()
+        except Exception as e:
+            print(f"[ROLE SYNC ERROR] {e}", flush=True)
+        try:
+            await roster.sync_all_member_messages()
+        except Exception as e:
+            print(f"[ROSTER ERROR] {e}", flush=True)
 
 
 @tasks.loop(minutes=10)
@@ -105,10 +127,7 @@ async def periodic_roster_sync():
 @bot.event
 async def on_member_join(member: discord.Member):
     database.upsert_member(str(member.id), str(member), is_bot=member.bot, is_pro=_has_pro_role(member))
-    try:
-        await roster.sync_all_member_messages()
-    except Exception as e:
-        print(f"[ROSTER ERROR] {e}", flush=True)
+    await sync_roles_and_roster()
 
 
 @bot.event
@@ -122,15 +141,11 @@ async def on_member_remove(member: discord.Member):
 
 @bot.event
 async def on_member_update(before: discord.Member, after: discord.Member):
-    was_pro = _has_pro_role(before)
-    is_pro = _has_pro_role(after)
-    if was_pro == is_pro and str(before) == str(after):
+    # Basta un cambio di ruoli (anche di personaggio) o di nome per risincronizzare
+    if set(before.roles) == set(after.roles) and str(before) == str(after):
         return
-    database.upsert_member(str(after.id), str(after), is_bot=after.bot, is_pro=is_pro)
-    try:
-        await roster.sync_all_member_messages()
-    except Exception as e:
-        print(f"[ROSTER ERROR] {e}", flush=True)
+    database.upsert_member(str(after.id), str(after), is_bot=after.bot, is_pro=_has_pro_role(after))
+    await sync_roles_and_roster()
 
 
 @bot.event

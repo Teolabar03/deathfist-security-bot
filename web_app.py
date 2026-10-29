@@ -762,6 +762,19 @@ def _apply_bulk_roster_edits(form) -> None:
         database.set_character_assignments(discord_id, characters)
 
 
+async def _sync_character_roles():
+    """Assegna su Discord i ruoli dei personaggi appena salvati. Restituisce un avviso da mostrare
+    all'admin se qualcosa non è andato, altrimenti None."""
+    try:
+        result = await roster.sync_character_roles()
+    except Exception as e:
+        return f"assegnazione dei ruoli personaggio fallita: {e}"
+    if result["missing_permission"]:
+        return ("il bot non può assegnare i ruoli personaggio: dagli il permesso \"Gestisci ruoli\" "
+                "e tieni il suo ruolo sopra quelli dei personaggi.")
+    return None
+
+
 @app.post("/admin/roster/bulk-edit")
 async def admin_roster_bulk_edit(request: Request):
     user = require_admin(request)
@@ -770,9 +783,13 @@ async def admin_roster_bulk_edit(request: Request):
 
     form = await request.form()
     _apply_bulk_roster_edits(form)
+    role_warning = await _sync_character_roles()
     try:
         await roster.sync_all_member_messages()
-        _flash(request, "Roster aggiornato e sincronizzato su Discord.", "ok")
+        if role_warning:
+            _flash(request, f"Roster aggiornato su Discord, ma {role_warning}", "error")
+        else:
+            _flash(request, "Roster aggiornato e sincronizzato su Discord.", "ok")
     except Exception as e:
         _flash(request, f"Dati salvati, ma sync Discord fallita: {e}", "error")
 
@@ -795,6 +812,7 @@ async def admin_roster_toggle_exclude(request: Request, discord_id: str):
     if current is None:
         raise HTTPException(status_code=404)
     database.set_member_excluded(discord_id, not current["excluded"])
+    await _sync_character_roles()
 
     try:
         await roster.sync_all_member_messages()

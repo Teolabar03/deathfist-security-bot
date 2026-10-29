@@ -38,6 +38,12 @@ def init_db():
                 character_name TEXT NOT NULL,
                 UNIQUE(discord_id, character_name)
             );
+            CREATE TABLE IF NOT EXISTS role_characters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                discord_id TEXT NOT NULL REFERENCES members(discord_id),
+                character_name TEXT NOT NULL,
+                UNIQUE(discord_id, character_name)
+            );
             CREATE TABLE IF NOT EXISTS bot_state (
                 key TEXT PRIMARY KEY,
                 value TEXT
@@ -311,6 +317,7 @@ def upsert_member(discord_id: str, discord_name: str, is_bot: bool = False, is_p
 def remove_member(discord_id: str):
     with get_db() as conn:
         conn.execute("DELETE FROM character_assignments WHERE discord_id = ?", (discord_id,))
+        conn.execute("DELETE FROM role_characters WHERE discord_id = ?", (discord_id,))
         conn.execute("DELETE FROM roster_messages WHERE discord_id = ?", (discord_id,))
         conn.execute("DELETE FROM members WHERE discord_id = ?", (discord_id,))
 
@@ -336,6 +343,7 @@ def prune_members_not_in(current_discord_ids: list):
         stale_ids = existing_ids - set(current_discord_ids)
         for discord_id in stale_ids:
             conn.execute("DELETE FROM character_assignments WHERE discord_id = ?", (discord_id,))
+            conn.execute("DELETE FROM role_characters WHERE discord_id = ?", (discord_id,))
             conn.execute("DELETE FROM roster_messages WHERE discord_id = ?", (discord_id,))
             conn.execute("DELETE FROM members WHERE discord_id = ?", (discord_id,))
 
@@ -372,6 +380,7 @@ def add_character(name: str):
 def remove_character(name: str):
     with get_db() as conn:
         conn.execute("DELETE FROM character_assignments WHERE character_name = ?", (name,))
+        conn.execute("DELETE FROM role_characters WHERE character_name = ?", (name,))
         conn.execute("DELETE FROM tekken_characters WHERE name = ?", (name,))
 
 
@@ -385,15 +394,42 @@ def get_character_assignments(discord_id: str):
 
 
 def get_members_with_characters(include_bots: bool = False, include_excluded: bool = False):
+    """Membri con i loro personaggi. Valgono quelli assegnati dal pannello (backend);
+    se un membro non ne ha, si usano quelli ricavati dai suoi ruoli Discord."""
     members = get_all_members(include_bots=include_bots, include_excluded=include_excluded)
     with get_db() as conn:
-        rows = conn.execute("SELECT discord_id, character_name FROM character_assignments").fetchall()
-    by_member = {}
-    for r in rows:
-        by_member.setdefault(r["discord_id"], []).append(r["character_name"])
+        assigned_rows = conn.execute("SELECT discord_id, character_name FROM character_assignments").fetchall()
+        role_rows = conn.execute("SELECT discord_id, character_name FROM role_characters").fetchall()
+    assigned = {}
+    for r in assigned_rows:
+        assigned.setdefault(r["discord_id"], []).append(r["character_name"])
+    from_roles = {}
+    for r in role_rows:
+        from_roles.setdefault(r["discord_id"], []).append(r["character_name"])
     for m in members:
-        m["characters"] = sorted(by_member.get(m["discord_id"], []))
+        m["assigned_characters"] = sorted(assigned.get(m["discord_id"], []))
+        m["role_characters"] = sorted(from_roles.get(m["discord_id"], []))
+        if m["assigned_characters"]:
+            m["characters"] = m["assigned_characters"]
+            m["characters_source"] = "backend"
+        elif m["role_characters"]:
+            m["characters"] = m["role_characters"]
+            m["characters_source"] = "ruoli"
+        else:
+            m["characters"] = []
+            m["characters_source"] = None
     return members
+
+
+def set_role_characters(discord_id: str, character_names: list):
+    """Personaggi letti dai ruoli Discord del membro (scritti solo dalla sincronizzazione dei ruoli)."""
+    with get_db() as conn:
+        conn.execute("DELETE FROM role_characters WHERE discord_id = ?", (discord_id,))
+        for name in character_names:
+            conn.execute(
+                "INSERT INTO role_characters (discord_id, character_name) VALUES (?, ?)",
+                (discord_id, name),
+            )
 
 
 def set_character_assignments(discord_id: str, character_names: list):

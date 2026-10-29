@@ -25,6 +25,17 @@ Comandi slash per i giocatori:
 Il bot mantiene inoltre un **roster** sempre aggiornato dei partecipanti (un
 messaggio per membro, con personaggio scelto) in un canale dedicato.
 
+Personaggi e ruoli Discord restano allineati nei due sensi:
+
+- per ogni membro valgono i personaggi assegnati dalla dashboard; chi non ne
+  ha compare con i personaggi dei suoi **ruoli Discord** (ruoli con lo stesso
+  nome del personaggio, oppure il solo primo nome, es. `Anna` per `Anna Williams`);
+- se la dashboard assegna un personaggio di cui il membro non ha il ruolo, il
+  bot glielo aggiunge (i ruoli non vengono mai tolti).
+
+Per assegnare i ruoli il bot deve avere il permesso **Gestisci ruoli** e il suo
+ruolo deve stare sopra quelli dei personaggi.
+
 ## Dashboard admin (web)
 
 Applicazione FastAPI separata (`web_app.py`), protetta da login Discord OAuth2,

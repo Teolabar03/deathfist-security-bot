@@ -90,7 +90,7 @@
     </div>
 </div>
 <p style="color: var(--text-muted); margin-top: 0; margin-bottom: 25px; font-size: 0.95em; max-width: 850px; line-height: 1.5;">
-    Associa uno o più personaggi Tekken 8 a ciascun membro del server e assegna facoltativamente un alias che verrà mostrato al posto del nome Discord nei canali pubblici. Modifica quanti membri vuoi e poi salva tutto in un'unica volta. Le modifiche vengono pubblicate automaticamente nel canale Discord del roster.
+    Associa uno o più personaggi Tekken 8 a ciascun membro del server e assegna facoltativamente un alias che verrà mostrato al posto del nome Discord nei canali pubblici. Modifica quanti membri vuoi e poi salva tutto in un'unica volta. Le modifiche vengono pubblicate automaticamente nel canale Discord del roster e il bot assegna a ogni membro i ruoli dei personaggi che gli mancano. Chi non ha personaggi assegnati qui compare con quelli dei suoi ruoli Discord.
 </p>
 
 {% if members %}
@@ -133,6 +133,9 @@
                             {% for c in m.characters %}
                                 <span class="char-badge-roster">{{ c }}</span>
                             {% endfor %}
+                            {% if m.characters_source == 'ruoli' %}
+                                <small style="flex-basis: 100%; color: var(--text-muted); margin-top: 4px;">Dai ruoli Discord</small>
+                            {% endif %}
                         {% else %}
                             <em style="color: var(--text-muted); font-size: 0.9em;">{{ default_label }}</em>
                         {% endif %}
@@ -143,7 +146,7 @@
                         <input type="text" name="alias__{{ m.discord_id }}" value="{{ m.alias or '' }}" placeholder="Alias (opzionale)" style="width: 135px; height: 38px; font-size: 0.85em;">
                         <select name="characters__{{ m.discord_id }}" multiple size="4" style="min-width: 170px; height: 100px;">
                             {% for c in all_characters %}
-                                <option value="{{ c }}" {% if c in m.characters %}selected{% endif %}>{{ c }}</option>
+                                <option value="{{ c }}" {% if c in m.assigned_characters %}selected{% endif %}>{{ c }}</option>
                             {% endfor %}
                         </select>
                     </div>

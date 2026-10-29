@@ -17,6 +17,7 @@ REQUEST_PACING_SECONDS = 0.3
 MAX_RATE_LIMIT_RETRIES = 5
 
 _lock = asyncio.Lock()
+_roles_lock = asyncio.Lock()
 
 
 def _display_name(member: dict) -> str:
@@ -94,6 +95,112 @@ async def _list_bot_message_ids(client: httpx.AsyncClient, channel_id: str, head
         if len(batch) < 100:
             break
     return ids
+
+
+def _match_character_roles(roles: list, characters: list) -> dict:
+    """Nome del personaggio nel catalogo -> ID del ruolo Discord con lo stesso nome (senza maiuscole).
+    Se il ruolo porta solo il primo nome (es. 'Anna' per 'Anna Williams') vale anche quello,
+    purché nel catalogo non esista un personaggio che si chiama proprio così."""
+    by_name = {}
+    for r in roles:
+        if not r.get("managed"):
+            by_name.setdefault(r["name"].strip().lower(), r["id"])
+    catalog = {c.lower() for c in characters}
+    result = {}
+    for c in characters:
+        key = c.lower()
+        role_id = by_name.get(key)
+        if role_id is None and " " in key:
+            first = key.split()[0]
+            if first not in catalog:
+                role_id = by_name.get(first)
+        if role_id:
+            result[c] = role_id
+    return result
+
+
+async def _list_guild_members(client: httpx.AsyncClient, guild_id: str, headers: dict) -> list:
+    members = []
+    after = "0"
+    while True:
+        resp = await _request(client, "GET", f"{DISCORD_API}/guilds/{guild_id}/members", headers,
+                              params={"limit": 1000, "after": after})
+        resp.raise_for_status()
+        batch = resp.json()
+        members.extend(batch)
+        if len(batch) < 1000:
+            return members
+        after = batch[-1]["user"]["id"]
+
+
+async def sync_character_roles(bot_token: str = None) -> dict:
+    """Allinea personaggi e ruoli Discord in entrambe le direzioni:
+    - legge i ruoli personaggio di ogni membro e li salva (usati nel roster se il backend non ha dati);
+    - se il backend assegna a un membro un personaggio di cui non ha il ruolo, glielo aggiunge.
+    I ruoli non vengono mai tolti. Restituisce quanti ruoli ha aggiunto e se manca il permesso."""
+    bot_token = bot_token or os.getenv("DISCORD_TOKEN")
+    headers = {"Authorization": f"Bot {bot_token}"}
+    add_headers = {**headers, "X-Audit-Log-Reason": "Roster DeathFist: personaggio assegnato dal pannello"}
+    result = {"assigned": 0, "missing_permission": False}
+
+    async with _roles_lock:
+        characters = database.get_all_characters()
+        known = {m["discord_id"]: m for m in database.get_members_with_characters(include_excluded=True)}
+
+        # Personaggi dai ruoli, uniti su tutti i server in cui il membro compare
+        from_roles = {}
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await _request(client, "GET", f"{DISCORD_API}/users/@me/guilds", headers)
+            resp.raise_for_status()
+            for guild in resp.json():
+                guild_id = guild["id"]
+                resp = await _request(client, "GET", f"{DISCORD_API}/guilds/{guild_id}/roles", headers)
+                resp.raise_for_status()
+                role_ids = _match_character_roles(resp.json(), characters)
+                if not role_ids:
+                    continue
+
+                denied = False
+                for gm in await _list_guild_members(client, guild_id, headers):
+                    discord_id = gm["user"]["id"]
+                    if discord_id not in known or gm["user"].get("bot"):
+                        continue
+
+                    has_roles = set(gm["roles"])
+                    from_roles.setdefault(discord_id, set()).update(
+                        c for c, rid in role_ids.items() if rid in has_roles
+                    )
+
+                    if denied:
+                        continue
+                    # Riletto qui: dal pannello potrebbe essere cambiato mentre la sync era in corso
+                    for character in database.get_character_assignments(discord_id):
+                        role_id = role_ids.get(character)
+                        if role_id is None or role_id in has_roles:
+                            continue
+                        resp = await _request(
+                            client, "PUT",
+                            f"{DISCORD_API}/guilds/{guild_id}/members/{discord_id}/roles/{role_id}",
+                            add_headers,
+                        )
+                        if resp.status_code == 403:
+                            # Manca "Gestisci ruoli" o il ruolo del bot sta sotto quello del personaggio
+                            print(f"[ROLE SYNC] Permesso negato nell'assegnare i ruoli su {guild['name']}", flush=True)
+                            result["missing_permission"] = True
+                            denied = True
+                            break
+                        resp.raise_for_status()
+                        result["assigned"] += 1
+
+        for discord_id, member in known.items():
+            names = sorted(from_roles.get(discord_id, ()))
+            if names != member["role_characters"]:
+                database.set_role_characters(discord_id, names)
+
+    if result["assigned"]:
+        print(f"[ROLE SYNC] Assegnati {result['assigned']} ruoli personaggio", flush=True)
+    return result
 
 
 async def sync_all_member_messages(channel_id: str = None, bot_token: str = None):
