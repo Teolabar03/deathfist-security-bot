@@ -1,5 +1,8 @@
 import datetime
+import html
 import os
+import secrets
+import urllib.parse
 import httpx
 from fastapi import FastAPI, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -28,15 +31,18 @@ ADMIN_IDS_RAW = os.getenv("ADMIN_DISCORD_IDS", "")
 ADMIN_IDS = set(uid.strip() for uid in ADMIN_IDS_RAW.split(",") if uid.strip())
 APP_PREFIX = os.getenv("APP_PREFIX", "").rstrip("/")
 
-DISCORD_OAUTH_URL = (
-    f"https://discord.com/api/oauth2/authorize"
-    f"?client_id={DISCORD_CLIENT_ID}"
-    f"&redirect_uri={DISCORD_REDIRECT_URI}"
-    f"&response_type=code&scope=identify"
-)
+if not ADMIN_IDS:
+    # Senza lista admin chiunque abbia un account Discord entrerebbe nel pannello.
+    raise RuntimeError("ADMIN_DISCORD_IDS è vuota: indica almeno un ID Discord admin nel .env.")
 
 app = FastAPI(title="Death Fist Tournament Admin")
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, max_age=86400)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    max_age=86400,
+    same_site="lax",
+    https_only=DISCORD_REDIRECT_URI.startswith("https://"),
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -57,7 +63,7 @@ def require_admin(request: Request):
     user = get_current_user(request)
     if not user:
         return None
-    if ADMIN_IDS and user["id"] not in ADMIN_IDS:
+    if user["id"] not in ADMIN_IDS:
         return None
     return user
 
@@ -177,15 +183,33 @@ def _compute_elo(history_matches):
 # Auth routes
 # ---------------------------------------------------------------------------
 
+def _auth_error(message: str, status_code: int = 400):
+    # Mai rimandare nella pagina testo arrivato dall'esterno senza escape (XSS riflesso).
+    return HTMLResponse(f"<p>{html.escape(message)}</p>", status_code=status_code)
+
+
 @app.get("/login")
-async def login():
-    return RedirectResponse(DISCORD_OAUTH_URL)
+async def login(request: Request):
+    # "state" lega il ritorno da Discord a questa sessione (protezione CSRF del login OAuth).
+    state = secrets.token_urlsafe(32)
+    request.session["oauth_state"] = state
+    query = urllib.parse.urlencode({
+        "client_id": DISCORD_CLIENT_ID,
+        "redirect_uri": DISCORD_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "identify",
+        "state": state,
+    })
+    return RedirectResponse(f"https://discord.com/api/oauth2/authorize?{query}")
 
 
 @app.get("/callback")
-async def callback(request: Request, code: str = None, error: str = None):
+async def callback(request: Request, code: str = None, error: str = None, state: str = None):
+    expected_state = request.session.pop("oauth_state", None)
+    if not expected_state or not state or not secrets.compare_digest(expected_state, state):
+        return _auth_error("Accesso non valido o scaduto: riprova dal pulsante di login.")
     if error or not code:
-        return HTMLResponse(f"<p>Auth fallita: {error or 'no code'}</p>")
+        return _auth_error("Accesso annullato o non riuscito su Discord.")
 
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
@@ -199,7 +223,7 @@ async def callback(request: Request, code: str = None, error: str = None):
             },
         )
         if token_resp.status_code != 200:
-            return HTMLResponse(f"<p>Token exchange fallito: {token_resp.text}</p>")
+            return _auth_error("Discord non ha confermato l'accesso: riprova.", status_code=502)
 
         token_data = token_resp.json()
         access_token = token_data["access_token"]
@@ -208,11 +232,14 @@ async def callback(request: Request, code: str = None, error: str = None):
             "https://discord.com/api/users/@me",
             headers={"Authorization": f"Bearer {access_token}"},
         )
+        if user_resp.status_code != 200:
+            return _auth_error("Impossibile leggere il profilo Discord: riprova.", status_code=502)
         user_data = user_resp.json()
 
-    if ADMIN_IDS and user_data["id"] not in ADMIN_IDS:
-        return HTMLResponse("<p>❌ Accesso negato: non sei nella lista degli admin.</p>")
+    if user_data["id"] not in ADMIN_IDS:
+        return _auth_error("Accesso negato: non sei nella lista degli admin.", status_code=403)
 
+    request.session.clear()
     request.session["user"] = {
         "id": user_data["id"],
         "username": user_data.get("global_name") or user_data["username"],
